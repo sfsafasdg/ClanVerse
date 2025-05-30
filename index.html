@@ -1,137 +1,89 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Telegram Chess Mini App</title>
+<title>Chess MiniApp</title>
 <style>
-  body { font-family: Arial, sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#333; }
-  #board { display: grid; grid-template-columns: repeat(8, 50px); grid-template-rows: repeat(8, 50px); border: 2px solid #444; }
-  .cell {
-    width: 50px; height: 50px; display:flex; justify-content:center; align-items:center; font-size: 32px;
-    cursor: pointer;
-  }
+  #board { display: grid; grid-template-columns: repeat(8, 50px); grid-template-rows: repeat(8, 50px); }
+  .cell { width: 50px; height: 50px; line-height: 50px; text-align: center; font-size: 30px; cursor: pointer; user-select:none; }
   .white { background: #eee; }
-  .black { background: #666; color: #222; }
-  .selected { outline: 3px solid #ff0; }
+  .black { background: #555; color: white; }
 </style>
 </head>
 <body>
-
+<h3>Chess MiniApp</h3>
 <div id="board"></div>
-
 <script>
 const boardEl = document.getElementById('board');
 
-const initialBoard = [
-  ['r','n','b','q','k','b','n','r'],
-  ['p','p','p','p','p','p','p','p'],
-  ['','','','','','','',''],
-  ['','','','','','','',''],
-  ['','','','','','','',''],
-  ['','','','','','','',''],
-  ['P','P','P','P','P','P','P','P'],
-  ['R','N','B','Q','K','B','N','R'],
-];
+const urlParams = new URLSearchParams(window.location.search);
+const gameId = urlParams.get('game_id');
+const playerId = parseInt(urlParams.get('player_id'));
 
-// Unicode шахматных фигур (белые - заглавные, черные - строчные)
-const piecesUnicode = {
-  'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
-  'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
-};
+let board = [];
+let selected = null;
 
-let board = JSON.parse(JSON.stringify(initialBoard));
-let selectedCell = null;
-let turn = 'white'; // очередь ходить: white или black
-
-function isWhite(piece) {
-  return piece && piece === piece.toUpperCase();
-}
-function isBlack(piece) {
-  return piece && piece === piece.toLowerCase();
-}
-
-function createBoard() {
+function drawBoard() {
   boardEl.innerHTML = '';
-  for (let r=0; r<8; r++) {
-    for (let c=0; c<8; c++) {
+  for(let r=0; r<8; r++) {
+    for(let c=0; c<8; c++) {
       const cell = document.createElement('div');
-      cell.classList.add('cell');
-      const isWhiteCell = (r + c) % 2 === 0;
-      cell.classList.add(isWhiteCell ? 'white' : 'black');
-      const piece = board[r][c];
-      cell.textContent = piecesUnicode[piece] || '';
+      cell.className = 'cell ' + ((r+c)%2===0 ? 'white' : 'black');
       cell.dataset.r = r;
       cell.dataset.c = c;
-
-      cell.onclick = () => onCellClick(r, c);
-
+      cell.textContent = board[r][c] || '';
+      cell.onclick = () => onCellClick(r,c);
       boardEl.appendChild(cell);
     }
   }
 }
 
+function loadGame() {
+  fetch(`http://localhost:8000/get_game/${gameId}`)
+    .then(res => res.json())
+    .then(data => {
+      board = data.board;
+      drawBoard();
+    })
+    .catch(e => console.error(e));
+}
+
 function onCellClick(r, c) {
-  const piece = board[r][c];
-  if (selectedCell) {
-    // Попытка сделать ход с selectedCell на r,c
-    if (canMove(selectedCell.r, selectedCell.c, r, c)) {
-      movePiece(selectedCell.r, selectedCell.c, r, c);
-      selectedCell = null;
-      turn = turn === 'white' ? 'black' : 'white';
-      createBoard();
-      // TODO: тут отправка хода серверу
-      alert(`Ход сделан. Очередь: ${turn}`);
-    } else {
-      // если кликнули не по валидному ходу, меняем выделение или отменяем
-      if (piece && ((turn === 'white' && isWhite(piece)) || (turn === 'black' && isBlack(piece)))) {
-        selectedCell = {r, c};
-        createBoard();
-        highlightSelected(r, c);
-      } else {
-        selectedCell = null;
-        createBoard();
-      }
+  if(!selected) {
+    if(board[r][c]) {
+      selected = {r, c};
     }
   } else {
-    // Выбираем фигуру, если она своя по цвету
-    if (piece && ((turn === 'white' && isWhite(piece)) || (turn === 'black' && isBlack(piece)))) {
-      selectedCell = {r, c};
-      createBoard();
-      highlightSelected(r, c);
-    }
+    const move = {
+      player_id: playerId,
+      from_row: selected.r,
+      from_col: selected.c,
+      to_row: r,
+      to_col: c,
+    };
+    fetch(`http://localhost:8000/make_move/${gameId}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(move),
+    })
+    .then(res => res.json())
+    .then(data => {
+      if(data.success) {
+        board = data.board;
+        drawBoard();
+      } else {
+        alert('Invalid move: ' + (data.error || 'Unknown error'));
+      }
+      selected = null;
+    })
+    .catch(e => {
+      alert('Ошибка связи с сервером');
+      selected = null;
+    });
   }
 }
 
-function highlightSelected(r, c) {
-  const idx = r*8 + c;
-  boardEl.children[idx].classList.add('selected');
-}
-
-// Очень базовые правила ходов для пешек и коней (для примера)
-// Для прототипа можно сделать все фигуры ходящими как король (на 1 клетку во все стороны)
-function canMove(r1, c1, r2, c2) {
-  const piece = board[r1][c1];
-  if (!piece) return false;
-  if (r2 < 0 || r2 > 7 || c2 < 0 || c2 > 7) return false;
-
-  // Запретить ход на клетку со своей фигурой
-  const target = board[r2][c2];
-  if (target && ((isWhite(piece) && isWhite(target)) || (isBlack(piece) && isBlack(target)))) return false;
-
-  // Простейшая логика — король ходит на одну клетку в любом направлении
-  if (Math.abs(r2-r1) <= 1 && Math.abs(c2-c1) <= 1) return true;
-
-  return false;
-}
-
-function movePiece(r1, c1, r2, c2) {
-  board[r2][c2] = board[r1][c1];
-  board[r1][c1] = '';
-}
-
-createBoard();
+loadGame();
 </script>
-
 </body>
 </html>
