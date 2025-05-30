@@ -1,286 +1,301 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ClashLite - Мини игра</title>
+<title>Mini Clash Top-Down</title>
 <style>
   body {
-    margin: 0;
-    background: #222;
-    font-family: Arial, sans-serif;
-    color: #eee;
+    margin: 0; padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
     user-select: none;
   }
-  #game-container {
-    position: relative;
-    width: 800px;
-    height: 600px;
-    margin: 20px auto;
-    background: #2c3e50;
-    border: 3px solid #34495e;
-    overflow: hidden;
+  #game {
+    max-width: 720px;
+    margin: 15px auto;
+    background: #e3f2fd;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    padding: 15px;
+  }
+  #resources {
+    display: flex;
+    justify-content: space-around;
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+  #build-buttons {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  #build-buttons button {
+    background: #4caf50;
+    border: none;
+    padding: 10px 15px;
+    margin: 0 6px;
+    border-radius: 8px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  #build-buttons button:hover {
+    background: #388e3c;
   }
   #map {
     position: relative;
-    width: 800px;
-    height: 600px;
-    background: linear-gradient(45deg, #34495e 25%, #2c3e50 25%, #2c3e50 50%, #34495e 50%, #34495e 75%, #2c3e50 75%, #2c3e50);
-    background-size: 40px 40px;
+    display: grid;
+    grid-template-columns: repeat(12, 56px);
+    grid-template-rows: repeat(8, 56px);
+    gap: 6px;
+    justify-content: center;
+    background: #81c784;
+    border-radius: 15px;
+    padding: 8px;
+  }
+  .cell {
+    position: relative;
+    background: linear-gradient(145deg, #a5d6a7, #66bb6a);
+    border-radius: 12px;
+    box-shadow: inset 3px 3px 7px #5a9d4a,
+                inset -3px -3px 5px #a4df8a;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .cell:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 12px #66bb6a;
   }
   .building {
     position: absolute;
-    width: 60px;
-    height: 60px;
-    border-radius: 8px;
-    box-sizing: border-box;
-    border: 2px solid #ccc;
-    text-align: center;
-    line-height: 60px;
-    font-weight: bold;
-    cursor: default;
-    transition: box-shadow 0.3s ease;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    animation: pulse 2s infinite alternate;
   }
   .building.house {
-    background: #f39c12;
-    border-color: #e67e22;
-  }
-  .building.oil {
-    background: #16a085;
-    border-color: #1abc9c;
+    background: linear-gradient(145deg, #ffd54f, #ffb300);
+    border: 2px solid #ffca28;
   }
   .building.barracks {
-    background: #2980b9;
-    border-color: #3498db;
+    background: linear-gradient(145deg, #64b5f6, #1976d2);
+    border: 2px solid #42a5f5;
   }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+    100% { box-shadow: 0 0 15px rgba(0,0,0,0.3); }
+  }
+  /* Юниты */
   .unit {
     position: absolute;
-    width: 30px;
-    height: 30px;
-    background: #e74c3c;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    border: 2px solid #c0392b;
-    box-sizing: border-box;
-    transition: transform 0.3s linear;
+    background: linear-gradient(145deg, #f44336, #d32f2f);
+    box-shadow: 0 3px 5px rgba(0,0,0,0.4);
+    animation: unit-walk 1s steps(4) infinite;
+    pointer-events: none;
   }
-  #ui {
-    width: 800px;
-    margin: 10px auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: #eee;
-    font-size: 18px;
-  }
-  #resources {
-    user-select: none;
-  }
-  button {
-    background: #34495e;
-    color: #eee;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background 0.3s ease;
-  }
-  button:hover {
-    background: #3c5d7c;
+  @keyframes unit-walk {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(0.85); }
   }
   #info {
-    width: 800px;
-    margin: 5px auto;
-    height: 24px;
-    color: #f1c40f;
-    font-weight: bold;
+    margin-top: 12px;
     text-align: center;
-    user-select: none;
+    font-weight: 600;
     min-height: 24px;
   }
 </style>
 </head>
 <body>
 
-<div id="game-container">
-  <div id="map"></div>
-</div>
-
-<div id="ui">
+<div id="game">
   <div id="resources">
-    Золото: <span id="gold">0</span> | Нефть: <span id="oil">0</span>
+    <div>Золото: <span id="gold">100</span></div>
+    <div>Нефть: <span id="oil">50</span></div>
   </div>
-  <div>
-    <button id="create-unit-btn">Создать юнита (100 золота)</button>
-    <button id="pause-btn">Пауза</button>
+  <div id="build-buttons">
+    <button data-building="house">Дом (20 золота)</button>
+    <button data-building="barracks">Казармы (50 золота)</button>
+    <button id="create-unit-btn" disabled>Создать юнита (10 золота)</button>
   </div>
+  <div id="map"></div>
+  <div id="info">Выберите здание для строительства</div>
 </div>
-
-<div id="info"></div>
 
 <script>
-  // Игровые данные
+  const mapWidth = 12;
+  const mapHeight = 8;
   const map = document.getElementById('map');
-  const goldEl = document.getElementById('gold');
-  const oilEl = document.getElementById('oil');
-  const infoEl = document.getElementById('info');
+  const goldSpan = document.getElementById('gold');
+  const oilSpan = document.getElementById('oil');
+  const info = document.getElementById('info');
   const createUnitBtn = document.getElementById('create-unit-btn');
-  const pauseBtn = document.getElementById('pause-btn');
 
-  let gamePaused = false;
+  let gold = 100;
+  let oil = 50;
+  let selectedBuilding = null;
+  let barracksCells = [];
 
-  let resources = {
-    gold: 500,
-    oil: 300
+  // Стоимость зданий
+  const costs = {
+    house: { gold: 20, oil: 0 },
+    barracks: { gold: 50, oil: 0 },
+    unit: { gold: 10 }
   };
 
-  // Постройки с координатами (x, y)
-  const buildings = [
-    { id: 'house1', type: 'house', x: 100, y: 100, gatherRate: 5, gatherTimer: 0 },
-    { id: 'house2', type: 'house', x: 650, y: 150, gatherRate: 5, gatherTimer: 0 },
-    { id: 'oil1', type: 'oil', x: 120, y: 450, gatherRate: 3, gatherTimer: 0 },
-    { id: 'oil2', type: 'oil', x: 600, y: 400, gatherRate: 3, gatherTimer: 0 },
-    { id: 'barracks', type: 'barracks', x: 350, y: 250 }
-  ];
+  // Карта - массив клеток с объектами
+  const cells = [];
 
-  // Юниты
-  let units = [];
-
-  // Создаём и отображаем постройки
-  function drawBuildings() {
-    map.innerHTML = '';
-    buildings.forEach(b => {
-      const el = document.createElement('div');
-      el.classList.add('building', b.type);
-      el.style.left = b.x + 'px';
-      el.style.top = b.y + 'px';
-      el.textContent = b.type === 'barracks' ? 'Казарма' : b.type === 'house' ? 'Дом' : 'Вышка';
-      el.dataset.id = b.id;
-      map.appendChild(el);
-      b.element = el;
-    });
+  // Создаем сетку карты
+  for(let y=0; y < mapHeight; y++){
+    for(let x=0; x < mapWidth; x++){
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      map.appendChild(cell);
+      cells.push(cell);
+    }
   }
 
-  // Создаём юнита возле казармы
-  function createUnit() {
-    if (resources.gold < 100) {
-      showInfo('Недостаточно золота для создания юнита!');
+  // Обработчик кнопок строительства
+  document.getElementById('build-buttons').addEventListener('click', e => {
+    if(e.target.tagName !== 'BUTTON') return;
+    if(e.target.id === 'create-unit-btn') {
+      createUnit();
       return;
     }
-    const barracks = buildings.find(b => b.type === 'barracks');
-    if (!barracks) return;
+    const bld = e.target.dataset.building;
+    if(costs[bld]){
+      selectedBuilding = bld;
+      info.textContent = `Вы выбрали: ${bld}. Кликните по клетке для постройки.`;
+    }
+  });
 
-    resources.gold -= 100;
-    updateResources();
+  // Строим здание по клику
+  map.addEventListener('click', e => {
+    if(!selectedBuilding) {
+      info.textContent = "Сначала выберите здание для постройки.";
+      return;
+    }
+    if(!e.target.classList.contains('cell')) return;
+    const cell = e.target;
+    if(cell.querySelector('.building')){
+      info.textContent = "На этой клетке уже есть здание!";
+      return;
+    }
+    // Проверяем ресурсы
+    if(gold < costs[selectedBuilding].gold){
+      info.textContent = "Недостаточно золота!";
+      return;
+    }
+    // Строим здание
+    gold -= costs[selectedBuilding].gold;
+    goldSpan.textContent = gold;
 
-    const unit = {
-      id: 'unit' + Date.now(),
-      x: barracks.x + 70,
-      y: barracks.y + 15,
-      target: null,
-      element: null,
-      state: 'patrol',
-      patrolDirection: 1,
-      patrolRange: 80,
-      patrolCenterX: barracks.x + 70,
-      speed: 1.2,
-      size: 30,
-      hp: 100,
-    };
+    const buildingDiv = document.createElement('div');
+    buildingDiv.classList.add('building', selectedBuilding);
+    cell.appendChild(buildingDiv);
 
-    const el = document.createElement('div');
-    el.classList.add('unit');
-    el.style.left = unit.x + 'px';
-    el.style.top = unit.y + 'px';
-    map.appendChild(el);
-    unit.element = el;
+    info.textContent = `${selectedBuilding} построен!`;
 
-    units.push(unit);
-    showInfo('Создан юнит!');
-  }
-
-  // Обновление ресурсов в интерфейсе
-  function updateResources() {
-    goldEl.textContent = Math.floor(resources.gold);
-    oilEl.textContent = Math.floor(resources.oil);
-  }
-
-  // Вывод сообщений
-  let infoTimeout;
-  function showInfo(text) {
-    clearTimeout(infoTimeout);
-    infoEl.textContent = text;
-    infoTimeout = setTimeout(() => {
-      infoEl.textContent = '';
-    }, 3000);
-  }
-
-  // Логика автоматического сбора ресурсов с построек
-  function gatherResources(delta) {
-    buildings.forEach(b => {
-      if (b.type === 'house' || b.type === 'oil') {
-        b.gatherTimer += delta;
-        if (b.gatherTimer >= 2000) { // каждые 2 секунды
-          if (b.type === 'house') {
-            resources.gold += b.gatherRate;
-          } else {
-            resources.oil += b.gatherRate;
-          }
-          b.gatherTimer = 0;
-          updateResources();
-        }
-      }
-    });
-  }
-
-  // Патруль юнита — ходит туда-сюда по оси X в пределах patrolRange
-  function patrol(unit) {
-    unit.x += unit.speed * unit.patrolDirection;
-    if (unit.x > unit.patrolCenterX + unit.patrolRange) unit.patrolDirection = -1;
-    else if (unit.x < unit.patrolCenterX - unit.patrolRange) unit.patrolDirection = 1;
-  }
-
-  // Обновление позиции и отрисовка юнитов
-  function updateUnits() {
-    units.forEach(unit => {
-      if (unit.state === 'patrol') {
-        patrol(unit);
-      }
-      unit.element.style.transform = `translate(${unit.x}px, ${unit.y}px)`;
-    });
-  }
-
-  // Главный цикл игры
-  let lastTime = 0;
-  function gameLoop(timestamp) {
-    if (!lastTime) lastTime = timestamp;
-    const delta = timestamp - lastTime;
-    lastTime = timestamp;
-
-    if (!gamePaused) {
-      gatherResources(delta);
-      updateUnits();
+    // Если построили казармы, включаем кнопку создания юнитов
+    if(selectedBuilding === 'barracks'){
+      barracksCells.push(cell);
+      createUnitBtn.disabled = false;
     }
 
-    requestAnimationFrame(gameLoop);
+    selectedBuilding = null;
+  });
+
+  // Создание юнита из случайной казармы
+  function createUnit(){
+    if(gold < costs.unit.gold){
+      info.textContent = "Недостаточно золота на юнита!";
+      return;
+    }
+    if(barracksCells.length === 0){
+      info.textContent = "Постройте хотя бы одну казарму!";
+      return;
+    }
+    gold -= costs.unit.gold;
+    goldSpan.textContent = gold;
+
+    // Создаем юнита в случайной казарме
+    const barracksCell = barracksCells[Math.floor(Math.random() * barracksCells.length)];
+    const unit = document.createElement('div');
+    unit.classList.add('unit');
+    map.appendChild(unit);
+
+    // Начальные координаты (центр клетки казармы)
+    const rect = barracksCell.getBoundingClientRect();
+    const mapRect = map.getBoundingClientRect();
+    const startX = rect.left - mapRect.left + rect.width/2 - unit.offsetWidth/2;
+    const startY = rect.top - mapRect.top + rect.height/2 - unit.offsetHeight/2;
+
+    unit.style.left = startX + 'px';
+    unit.style.top = startY + 'px';
+
+    info.textContent = "Юнит создан! Он двигается по карте.";
+
+    moveUnitRandom(unit);
   }
 
-  // Обработчики кнопок
-  createUnitBtn.addEventListener('click', () => {
-    if (!gamePaused) createUnit();
-  });
+  // Двигаем юнита случайным образом по карте
+  function moveUnitRandom(unit){
+    const cellSize = cells[0].offsetWidth + 6; // с учетом gap
 
-  pauseBtn.addEventListener('click', () => {
-    gamePaused = !gamePaused;
-    pauseBtn.textContent = gamePaused ? 'Продолжить' : 'Пауза';
-    showInfo(gamePaused ? 'Игра на паузе' : 'Игра возобновлена');
-  });
+    let posX = parseFloat(unit.style.left);
+    let posY = parseFloat(unit.style.top);
 
-  // Инициализация
-  drawBuildings();
-  updateResources();
-  requestAnimationFrame(gameLoop);
+    // Выбираем новую цель в пределах карты (в пикселях)
+    const targetCellX = Math.floor(Math.random() * mapWidth);
+    const targetCellY = Math.floor(Math.random() * mapHeight);
+
+    const mapRect = map.getBoundingClientRect();
+
+    const targetX = targetCellX * (cellSize) + cellSize/2 - unit.offsetWidth/2;
+    const targetY = targetCellY * (cellSize) + cellSize/2 - unit.offsetHeight/2;
+
+    const duration = 2000 + Math.random() * 3000; // 2-5 секунд движение
+
+    const startTime = performance.now();
+
+    function animate(time){
+      const elapsed = time - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      unit.style.left = posX + (targetX - posX)*progress + 'px';
+      unit.style.top = posY + (targetY - posY)*progress + 'px';
+
+      if(progress < 1){
+        requestAnimationFrame(animate);
+      } else {
+        // Как только достигли цели, двигаемся снова
+        moveUnitRandom(unit);
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+
+  // Автоматический сбор ресурсов каждые 5 секунд
+  setInterval(() => {
+    // За каждый дом добавляем золото
+    const houses = cells.filter(c => c.querySelector('.building.house')).length;
+    if(houses > 0){
+      gold += houses * 5;
+      goldSpan.textContent = gold;
+      info.textContent = `Собрали ${houses * 5} золота с домов!`;
+    }
+  }, 5000);
 
 </script>
+
 </body>
 </html>
