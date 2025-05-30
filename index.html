@@ -2,221 +2,135 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Mini Clash</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Telegram Chess Mini App</title>
 <style>
-  body {
-    margin: 0; padding: 10px; background: #1e1e2f; color: #eee; font-family: Arial, sans-serif;
-    user-select: none;
-  }
-  h1 { text-align: center; margin-bottom: 5px; }
-  .resource-bar {
-    background: #222244; padding: 10px; border-radius: 8px; margin-bottom: 10px;
-    font-size: 20px;
-    text-align: center;
-  }
-  .buildings, .units, .battle {
-    background: #2a2a4a; border-radius: 8px; padding: 10px; margin-bottom: 15px;
-  }
-  button {
-    background: #444466; border: none; color: #ddd; font-size: 16px;
-    padding: 8px 12px; margin: 5px 0; border-radius: 5px;
+  body { font-family: Arial, sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#333; }
+  #board { display: grid; grid-template-columns: repeat(8, 50px); grid-template-rows: repeat(8, 50px); border: 2px solid #444; }
+  .cell {
+    width: 50px; height: 50px; display:flex; justify-content:center; align-items:center; font-size: 32px;
     cursor: pointer;
-    width: 100%;
-    transition: background 0.3s;
   }
-  button:hover:not(:disabled) {
-    background: #6677ff;
-  }
-  button:disabled {
-    background: #333344; color: #666688;
-    cursor: not-allowed;
-  }
-  .stat {
-    margin-top: 8px; font-size: 14px; color: #aaa;
-  }
-  .log {
-    background: #222244; border-radius: 5px; height: 120px; overflow-y: auto;
-    padding: 5px; font-size: 14px; font-family: monospace; white-space: pre-wrap;
-  }
+  .white { background: #eee; }
+  .black { background: #666; color: #222; }
+  .selected { outline: 3px solid #ff0; }
 </style>
 </head>
 <body>
 
-<h1>Mini Clash Prototype</h1>
-
-<div class="resource-bar">
-  Золото: <span id="gold">0</span>
-</div>
-
-<div class="buildings">
-  <h2>Здания</h2>
-  <div>
-    <b>Башня (уровень <span id="towerLevel">1</span>)</b><br/>
-    Защита: <span id="towerDef">10</span><br/>
-    Улучшение (100 золота): <button id="upgradeTowerBtn">Улучшить</button>
-  </div>
-  <hr/>
-  <div>
-    <b>Казарма (уровень <span id="barracksLevel">1</span>)</b><br/>
-    Производство воинов: <span id="barracksProd">1</span> юнит/мин<br/>
-    Улучшение (150 золота): <button id="upgradeBarracksBtn">Улучшить</button>
-  </div>
-</div>
-
-<div class="units">
-  <h2>Юниты</h2>
-  <div>Воинов: <span id="unitsCount">0</span></div>
-  <button id="trainUnitBtn">Набрать воина (50 золота)</button>
-</div>
-
-<div class="battle">
-  <h2>Битва</h2>
-  <button id="attackBtn">Атаковать врага</button>
-  <div class="log" id="battleLog"></div>
-</div>
+<div id="board"></div>
 
 <script>
-(() => {
-  // Инициализация
-  let state = {
-    gold: 500,
-    tower: { level: 1, def: 10, upgradeCost: 100 },
-    barracks: { level: 1, prod: 1, upgradeCost: 150 },
-    units: 0,
-  };
+const boardEl = document.getElementById('board');
 
-  // Элементы
-  const goldEl = document.getElementById('gold');
-  const towerLevelEl = document.getElementById('towerLevel');
-  const towerDefEl = document.getElementById('towerDef');
-  const upgradeTowerBtn = document.getElementById('upgradeTowerBtn');
+const initialBoard = [
+  ['r','n','b','q','k','b','n','r'],
+  ['p','p','p','p','p','p','p','p'],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['P','P','P','P','P','P','P','P'],
+  ['R','N','B','Q','K','B','N','R'],
+];
 
-  const barracksLevelEl = document.getElementById('barracksLevel');
-  const barracksProdEl = document.getElementById('barracksProd');
-  const upgradeBarracksBtn = document.getElementById('upgradeBarracksBtn');
+// Unicode шахматных фигур (белые - заглавные, черные - строчные)
+const piecesUnicode = {
+  'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+  'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
+};
 
-  const unitsCountEl = document.getElementById('unitsCount');
-  const trainUnitBtn = document.getElementById('trainUnitBtn');
+let board = JSON.parse(JSON.stringify(initialBoard));
+let selectedCell = null;
+let turn = 'white'; // очередь ходить: white или black
 
-  const attackBtn = document.getElementById('attackBtn');
-  const battleLog = document.getElementById('battleLog');
+function isWhite(piece) {
+  return piece && piece === piece.toUpperCase();
+}
+function isBlack(piece) {
+  return piece && piece === piece.toLowerCase();
+}
 
-  // Сохранение и загрузка
-  function save() {
-    localStorage.setItem('miniClashState', JSON.stringify(state));
-  }
-  function load() {
-    const data = localStorage.getItem('miniClashState');
-    if (data) {
-      state = JSON.parse(data);
+function createBoard() {
+  boardEl.innerHTML = '';
+  for (let r=0; r<8; r++) {
+    for (let c=0; c<8; c++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      const isWhiteCell = (r + c) % 2 === 0;
+      cell.classList.add(isWhiteCell ? 'white' : 'black');
+      const piece = board[r][c];
+      cell.textContent = piecesUnicode[piece] || '';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+
+      cell.onclick = () => onCellClick(r, c);
+
+      boardEl.appendChild(cell);
     }
   }
+}
 
-  // Обновление интерфейса и кнопок
-  function updateUI() {
-    goldEl.textContent = state.gold.toFixed(0);
-    towerLevelEl.textContent = state.tower.level;
-    towerDefEl.textContent = state.tower.def;
-    upgradeTowerBtn.textContent = `Улучшить (${state.tower.upgradeCost} золота)`;
-    upgradeTowerBtn.disabled = state.gold < state.tower.upgradeCost;
-
-    barracksLevelEl.textContent = state.barracks.level;
-    barracksProdEl.textContent = state.barracks.prod;
-    upgradeBarracksBtn.textContent = `Улучшить (${state.barracks.upgradeCost} золота)`;
-    upgradeBarracksBtn.disabled = state.gold < state.barracks.upgradeCost;
-
-    unitsCountEl.textContent = state.units;
-    trainUnitBtn.disabled = state.gold < 50;
-
-    attackBtn.disabled = state.units === 0;
-  }
-
-  // Улучшение Башни
-  upgradeTowerBtn.onclick = () => {
-    if (state.gold >= state.tower.upgradeCost) {
-      state.gold -= state.tower.upgradeCost;
-      state.tower.level++;
-      state.tower.def = Math.round(state.tower.def * 1.5);
-      state.tower.upgradeCost = Math.round(state.tower.upgradeCost * 2);
-      logBattle('Башня улучшена! Защита увеличена.');
-      save();
-      updateUI();
-    }
-  };
-
-  // Улучшение Казармы
-  upgradeBarracksBtn.onclick = () => {
-    if (state.gold >= state.barracks.upgradeCost) {
-      state.gold -= state.barracks.upgradeCost;
-      state.barracks.level++;
-      state.barracks.prod++;
-      state.barracks.upgradeCost = Math.round(state.barracks.upgradeCost * 2);
-      logBattle('Казарма улучшена! Производство воинов увеличено.');
-      save();
-      updateUI();
-    }
-  };
-
-  // Набор воина
-  trainUnitBtn.onclick = () => {
-    if (state.gold >= 50) {
-      state.gold -= 50;
-      state.units++;
-      logBattle('Набран новый воин!');
-      save();
-      updateUI();
-    }
-  };
-
-  // Имитация атаки
-  attackBtn.onclick = () => {
-    battleLog.textContent = '';
-    logBattle('Вы отправляете армию в бой...');
-    // Генерируем врага с силой от 5 до 50
-    const enemyStrength = 5 + Math.floor(Math.random() * 45);
-    const armyPower = state.units * 10 + state.tower.def;
-
-    logBattle(`Сила врага: ${enemyStrength}`);
-    logBattle(`Сила вашей армии (войны + башня): ${armyPower}`);
-
-    if (armyPower >= enemyStrength) {
-      logBattle('Победа! Вы получаете 100 золота.');
-      state.gold += 100;
-      // Потеря воинов 10-30%
-      const loss = Math.floor(state.units * (0.1 + Math.random() * 0.2));
-      state.units = Math.max(0, state.units - loss);
-      logBattle(`Потери среди войнов: ${loss}`);
+function onCellClick(r, c) {
+  const piece = board[r][c];
+  if (selectedCell) {
+    // Попытка сделать ход с selectedCell на r,c
+    if (canMove(selectedCell.r, selectedCell.c, r, c)) {
+      movePiece(selectedCell.r, selectedCell.c, r, c);
+      selectedCell = null;
+      turn = turn === 'white' ? 'black' : 'white';
+      createBoard();
+      // TODO: тут отправка хода серверу
+      alert(`Ход сделан. Очередь: ${turn}`);
     } else {
-      logBattle('Поражение... Вы теряете 50 золота.');
-      state.gold = Math.max(0, state.gold - 50);
-      // Потеря воинов 30-50%
-      const loss = Math.floor(state.units * (0.3 + Math.random() * 0.2));
-      state.units = Math.max(0, state.units - loss);
-      logBattle(`Потери среди войнов: ${loss}`);
+      // если кликнули не по валидному ходу, меняем выделение или отменяем
+      if (piece && ((turn === 'white' && isWhite(piece)) || (turn === 'black' && isBlack(piece)))) {
+        selectedCell = {r, c};
+        createBoard();
+        highlightSelected(r, c);
+      } else {
+        selectedCell = null;
+        createBoard();
+      }
     }
-    save();
-    updateUI();
-  };
-
-  // Лог боя (снизу)
-  function logBattle(text) {
-    battleLog.textContent += text + '\n';
-    battleLog.scrollTop = battleLog.scrollHeight;
+  } else {
+    // Выбираем фигуру, если она своя по цвету
+    if (piece && ((turn === 'white' && isWhite(piece)) || (turn === 'black' && isBlack(piece)))) {
+      selectedCell = {r, c};
+      createBoard();
+      highlightSelected(r, c);
+    }
   }
+}
 
-  // Автоматическая добыча золота (руды) с казармы
-  setInterval(() => {
-    const income = state.barracks.prod * 5; // 5 золота за производство на уровень казармы
-    state.gold += income;
-    save();
-    updateUI();
-  }, 60000); // раз в минуту
+function highlightSelected(r, c) {
+  const idx = r*8 + c;
+  boardEl.children[idx].classList.add('selected');
+}
 
-  // Инициализация
-  load();
-  updateUI();
-})();
+// Очень базовые правила ходов для пешек и коней (для примера)
+// Для прототипа можно сделать все фигуры ходящими как король (на 1 клетку во все стороны)
+function canMove(r1, c1, r2, c2) {
+  const piece = board[r1][c1];
+  if (!piece) return false;
+  if (r2 < 0 || r2 > 7 || c2 < 0 || c2 > 7) return false;
+
+  // Запретить ход на клетку со своей фигурой
+  const target = board[r2][c2];
+  if (target && ((isWhite(piece) && isWhite(target)) || (isBlack(piece) && isBlack(target)))) return false;
+
+  // Простейшая логика — король ходит на одну клетку в любом направлении
+  if (Math.abs(r2-r1) <= 1 && Math.abs(c2-c1) <= 1) return true;
+
+  return false;
+}
+
+function movePiece(r1, c1, r2, c2) {
+  board[r2][c2] = board[r1][c1];
+  board[r1][c1] = '';
+}
+
+createBoard();
 </script>
 
 </body>
