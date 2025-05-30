@@ -2,208 +2,221 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<title>База с добытчиками</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Mini Clash</title>
 <style>
   body {
-    margin: 0; padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+    margin: 0; padding: 10px; background: #1e1e2f; color: #eee; font-family: Arial, sans-serif;
     user-select: none;
   }
-  #game {
-    max-width: 720px;
-    margin: 15px auto;
-    background: #e3f2fd;
-    border-radius: 12px;
-    box-shadow: 0 0 15px rgba(0,0,0,0.2);
-    padding: 15px;
-  }
-  #resources {
-    display: flex;
-    justify-content: space-around;
-    font-weight: 700;
-    font-size: 18px;
-    margin-bottom: 10px;
-  }
-  #build-buttons {
+  h1 { text-align: center; margin-bottom: 5px; }
+  .resource-bar {
+    background: #222244; padding: 10px; border-radius: 8px; margin-bottom: 10px;
+    font-size: 20px;
     text-align: center;
-    margin-bottom: 10px;
   }
-  #build-buttons button {
-    background: #4caf50;
-    border: none;
-    padding: 10px 15px;
-    margin: 0 8px;
-    border-radius: 8px;
-    font-weight: 600;
-    color: white;
+  .buildings, .units, .battle {
+    background: #2a2a4a; border-radius: 8px; padding: 10px; margin-bottom: 15px;
+  }
+  button {
+    background: #444466; border: none; color: #ddd; font-size: 16px;
+    padding: 8px 12px; margin: 5px 0; border-radius: 5px;
     cursor: pointer;
-    transition: background 0.3s ease;
+    width: 100%;
+    transition: background 0.3s;
   }
-  #build-buttons button:hover {
-    background: #388e3c;
+  button:hover:not(:disabled) {
+    background: #6677ff;
   }
-  #map {
-    display: grid;
-    grid-template-columns: repeat(12, 56px);
-    grid-template-rows: repeat(8, 56px);
-    gap: 6px;
-    justify-content: center;
-    background: #81c784;
-    border-radius: 15px;
-    padding: 8px;
+  button:disabled {
+    background: #333344; color: #666688;
+    cursor: not-allowed;
   }
-  .cell {
-    background: linear-gradient(145deg, #a8d5a3, #70b860);
-    border-radius: 12px;
-    box-shadow: inset 3px 3px 7px #599d3e,
-                inset -3px -3px 5px #9dd47f;
-    cursor: pointer;
-    transition: transform 0.15s ease;
-    position: relative;
+  .stat {
+    margin-top: 8px; font-size: 14px; color: #aaa;
   }
-  .cell:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 12px #70b860;
-  }
-  .building {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    color: white;
-    font-weight: 700;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-shadow: 0 0 5px rgba(0,0,0,0.6);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  }
-  .gold-miner {
-    background: linear-gradient(145deg, #ffd54f, #ffb300);
-    border: 2px solid #ffca28;
-  }
-  .oil-rig {
-    background: linear-gradient(145deg, #64b5f6, #1976d2);
-    border: 2px solid #42a5f5;
-  }
-  #info {
-    margin-top: 12px;
-    text-align: center;
-    font-weight: 600;
-    min-height: 24px;
+  .log {
+    background: #222244; border-radius: 5px; height: 120px; overflow-y: auto;
+    padding: 5px; font-size: 14px; font-family: monospace; white-space: pre-wrap;
   }
 </style>
 </head>
 <body>
 
-<div id="game">
-  <div id="resources">
-    <div>Золото: <span id="gold">0</span></div>
-    <div>Нефть: <span id="oil">0</span></div>
+<h1>Mini Clash Prototype</h1>
+
+<div class="resource-bar">
+  Золото: <span id="gold">0</span>
+</div>
+
+<div class="buildings">
+  <h2>Здания</h2>
+  <div>
+    <b>Башня (уровень <span id="towerLevel">1</span>)</b><br/>
+    Защита: <span id="towerDef">10</span><br/>
+    Улучшение (100 золота): <button id="upgradeTowerBtn">Улучшить</button>
   </div>
-  <div id="build-buttons">
-    <button data-building="gold-miner">Добытчик золота (стоимость 10 золота)</button>
-    <button data-building="oil-rig">Нефтяная вышка (стоимость 15 золота)</button>
+  <hr/>
+  <div>
+    <b>Казарма (уровень <span id="barracksLevel">1</span>)</b><br/>
+    Производство воинов: <span id="barracksProd">1</span> юнит/мин<br/>
+    Улучшение (150 золота): <button id="upgradeBarracksBtn">Улучшить</button>
   </div>
-  <div id="map"></div>
-  <div id="info">Выберите постройку для строительства</div>
+</div>
+
+<div class="units">
+  <h2>Юниты</h2>
+  <div>Воинов: <span id="unitsCount">0</span></div>
+  <button id="trainUnitBtn">Набрать воина (50 золота)</button>
+</div>
+
+<div class="battle">
+  <h2>Битва</h2>
+  <button id="attackBtn">Атаковать врага</button>
+  <div class="log" id="battleLog"></div>
 </div>
 
 <script>
-  const mapWidth = 12;
-  const mapHeight = 8;
-  const map = document.getElementById('map');
-  const goldSpan = document.getElementById('gold');
-  const oilSpan = document.getElementById('oil');
-  const info = document.getElementById('info');
-
-  let gold = 0;
-  let oil = 0;
-  let selectedBuilding = null;
-
-  // Стоимость построек (в золоте)
-  const costs = {
-    'gold-miner': 10,
-    'oil-rig': 15,
+(() => {
+  // Инициализация
+  let state = {
+    gold: 500,
+    tower: { level: 1, def: 10, upgradeCost: 100 },
+    barracks: { level: 1, prod: 1, upgradeCost: 150 },
+    units: 0,
   };
 
-  // Создаем сетку карты
-  for(let y=0; y < mapHeight; y++){
-    for(let x=0; x < mapWidth; x++){
-      const cell = document.createElement('div');
-      cell.classList.add('cell');
-      cell.dataset.x = x;
-      cell.dataset.y = y;
-      map.appendChild(cell);
+  // Элементы
+  const goldEl = document.getElementById('gold');
+  const towerLevelEl = document.getElementById('towerLevel');
+  const towerDefEl = document.getElementById('towerDef');
+  const upgradeTowerBtn = document.getElementById('upgradeTowerBtn');
+
+  const barracksLevelEl = document.getElementById('barracksLevel');
+  const barracksProdEl = document.getElementById('barracksProd');
+  const upgradeBarracksBtn = document.getElementById('upgradeBarracksBtn');
+
+  const unitsCountEl = document.getElementById('unitsCount');
+  const trainUnitBtn = document.getElementById('trainUnitBtn');
+
+  const attackBtn = document.getElementById('attackBtn');
+  const battleLog = document.getElementById('battleLog');
+
+  // Сохранение и загрузка
+  function save() {
+    localStorage.setItem('miniClashState', JSON.stringify(state));
+  }
+  function load() {
+    const data = localStorage.getItem('miniClashState');
+    if (data) {
+      state = JSON.parse(data);
     }
   }
 
-  // Обработка выбора постройки
-  document.getElementById('build-buttons').addEventListener('click', e => {
-    if(e.target.tagName !== 'BUTTON') return;
-    selectedBuilding = e.target.dataset.building;
-    info.textContent = `Вы выбрали: ${selectedBuilding}. Кликните на клетку для строительства.`;
-  });
+  // Обновление интерфейса и кнопок
+  function updateUI() {
+    goldEl.textContent = state.gold.toFixed(0);
+    towerLevelEl.textContent = state.tower.level;
+    towerDefEl.textContent = state.tower.def;
+    upgradeTowerBtn.textContent = `Улучшить (${state.tower.upgradeCost} золота)`;
+    upgradeTowerBtn.disabled = state.gold < state.tower.upgradeCost;
 
-  // Строительство по клику на клетку
-  map.addEventListener('click', e => {
-    if(!selectedBuilding){
-      info.textContent = "Сначала выберите постройку для строительства.";
-      return;
+    barracksLevelEl.textContent = state.barracks.level;
+    barracksProdEl.textContent = state.barracks.prod;
+    upgradeBarracksBtn.textContent = `Улучшить (${state.barracks.upgradeCost} золота)`;
+    upgradeBarracksBtn.disabled = state.gold < state.barracks.upgradeCost;
+
+    unitsCountEl.textContent = state.units;
+    trainUnitBtn.disabled = state.gold < 50;
+
+    attackBtn.disabled = state.units === 0;
+  }
+
+  // Улучшение Башни
+  upgradeTowerBtn.onclick = () => {
+    if (state.gold >= state.tower.upgradeCost) {
+      state.gold -= state.tower.upgradeCost;
+      state.tower.level++;
+      state.tower.def = Math.round(state.tower.def * 1.5);
+      state.tower.upgradeCost = Math.round(state.tower.upgradeCost * 2);
+      logBattle('Башня улучшена! Защита увеличена.');
+      save();
+      updateUI();
     }
-    if(!e.target.classList.contains('cell')) return;
+  };
 
-    const cell = e.target;
-
-    if(cell.querySelector('.building')){
-      info.textContent = "На этой клетке уже есть постройка!";
-      return;
+  // Улучшение Казармы
+  upgradeBarracksBtn.onclick = () => {
+    if (state.gold >= state.barracks.upgradeCost) {
+      state.gold -= state.barracks.upgradeCost;
+      state.barracks.level++;
+      state.barracks.prod++;
+      state.barracks.upgradeCost = Math.round(state.barracks.upgradeCost * 2);
+      logBattle('Казарма улучшена! Производство воинов увеличено.');
+      save();
+      updateUI();
     }
+  };
 
-    // Проверка стоимости
-    if(gold < costs[selectedBuilding]){
-      info.textContent = "Недостаточно золота!";
-      return;
+  // Набор воина
+  trainUnitBtn.onclick = () => {
+    if (state.gold >= 50) {
+      state.gold -= 50;
+      state.units++;
+      logBattle('Набран новый воин!');
+      save();
+      updateUI();
     }
+  };
 
-    gold -= costs[selectedBuilding];
-    goldSpan.textContent = gold;
+  // Имитация атаки
+  attackBtn.onclick = () => {
+    battleLog.textContent = '';
+    logBattle('Вы отправляете армию в бой...');
+    // Генерируем врага с силой от 5 до 50
+    const enemyStrength = 5 + Math.floor(Math.random() * 45);
+    const armyPower = state.units * 10 + state.tower.def;
 
-    // Создаем элемент постройки
-    const buildingDiv = document.createElement('div');
-    buildingDiv.classList.add('building', selectedBuilding);
+    logBattle(`Сила врага: ${enemyStrength}`);
+    logBattle(`Сила вашей армии (войны + башня): ${armyPower}`);
 
-    if(selectedBuilding === 'gold-miner'){
-      buildingDiv.textContent = 'Золото';
-    } else if(selectedBuilding === 'oil-rig'){
-      buildingDiv.textContent = 'Нефть';
+    if (armyPower >= enemyStrength) {
+      logBattle('Победа! Вы получаете 100 золота.');
+      state.gold += 100;
+      // Потеря воинов 10-30%
+      const loss = Math.floor(state.units * (0.1 + Math.random() * 0.2));
+      state.units = Math.max(0, state.units - loss);
+      logBattle(`Потери среди войнов: ${loss}`);
+    } else {
+      logBattle('Поражение... Вы теряете 50 золота.');
+      state.gold = Math.max(0, state.gold - 50);
+      // Потеря воинов 30-50%
+      const loss = Math.floor(state.units * (0.3 + Math.random() * 0.2));
+      state.units = Math.max(0, state.units - loss);
+      logBattle(`Потери среди войнов: ${loss}`);
     }
+    save();
+    updateUI();
+  };
 
-    cell.appendChild(buildingDiv);
+  // Лог боя (снизу)
+  function logBattle(text) {
+    battleLog.textContent += text + '\n';
+    battleLog.scrollTop = battleLog.scrollHeight;
+  }
 
-    info.textContent = `${selectedBuilding === 'gold-miner' ? 'Добытчик золота' : 'Нефтяная вышка'} построена!`;
-
-    selectedBuilding = null;
-  });
-
-  // Добыча ресурсов каждые 1 секунду
+  // Автоматическая добыча золота (руды) с казармы
   setInterval(() => {
-    const goldMiners = document.querySelectorAll('.gold-miner').length;
-    const oilRigs = document.querySelectorAll('.oil-rig').length;
+    const income = state.barracks.prod * 5; // 5 золота за производство на уровень казармы
+    state.gold += income;
+    save();
+    updateUI();
+  }, 60000); // раз в минуту
 
-    gold += goldMiners * 1; // 1 золото в секунду с каждого добытчика
-    oil += oilRigs * 1;     // 1 нефть в секунду с каждой вышки
-
-    goldSpan.textContent = gold;
-    oilSpan.textContent = oil;
-
-    info.textContent = `Добыча: +${goldMiners} золота, +${oilRigs} нефти в секунду`;
-  }, 1000);
-
+  // Инициализация
+  load();
+  updateUI();
+})();
 </script>
 
 </body>
