@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clash Mini - Золото и Нефть</title>
+<style>
+  body {
+    background: linear-gradient(to bottom, #222, #444);
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 {
+    margin: 20px 0 10px;
+  }
+  #resources {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 20px;
+    font-size: 24px;
+  }
+  #village {
+    display: flex;
+    gap: 40px;
+  }
+  .building {
+    background: #555;
+    border-radius: 12px;
+    padding: 20px;
+    width: 140px;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(255,255,255,0.1);
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+  }
+  .building:hover {
+    box-shadow: 0 0 25px #ffcc00;
+  }
+  .level {
+    font-weight: bold;
+    margin-top: 10px;
+  }
+  button {
+    margin-top: 15px;
+    padding: 8px 12px;
+    border: none;
+    background: #ffcc00;
+    color: #222;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  button:hover {
+    background: #e6b800;
+  }
+  /* Простая анимация "дыхания" для зданий */
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(255,204,0,0.5); }
+    50% { box-shadow: 0 0 25px rgba(255,204,0,1); }
+  }
+  .active {
+    animation: pulse 2s infinite;
+  }
+</style>
+</head>
+<body>
+
+<h1>Деревня: Золото и Нефть</h1>
+
+<div id="resources">
+  <div>💰 Золото: <span id="gold">0</span></div>
+  <div>🛢️ Нефть: <span id="oil">0</span></div>
+</div>
+
+<div id="village">
+  <div class="building" id="goldMine">
+    <h3>Шахта золота</h3>
+    <div>Уровень: <span class="level">1</span></div>
+    <button>Улучшить (100 золота)</button>
+  </div>
+
+  <div class="building" id="oilRig">
+    <h3>Нефтяная вышка</h3>
+    <div>Уровень: <span class="level">1</span></div>
+    <button>Улучшить (150 золота)</button>
+  </div>
+</div>
+
+<script>
+  let gold = 0;
+  let oil = 0;
+  let goldLevel = 1;
+  let oilLevel = 1;
+
+  const goldEl = document.getElementById('gold');
+  const oilEl = document.getElementById('oil');
+
+  const goldMine = document.getElementById('goldMine');
+  const oilRig = document.getElementById('oilRig');
+
+  // Скорость добычи ресурсов в секунду (зависит от уровня)
+  function goldPerSecond() {
+    return goldLevel * 1.2;
+  }
+  function oilPerSecond() {
+    return oilLevel * 0.8;
+  }
+
+  // Обновляем ресурсы каждую секунду
+  setInterval(() => {
+    gold += goldPerSecond();
+    oil += oilPerSecond();
+    goldEl.textContent = Math.floor(gold);
+    oilEl.textContent = Math.floor(oil);
+  }, 1000);
+
+  // Улучшение шахты золота
+  goldMine.querySelector('button').addEventListener('click', () => {
+    const cost = goldLevel * 100;
+    if (gold >= cost) {
+      gold -= cost;
+      goldLevel++;
+      goldMine.querySelector('.level').textContent = goldLevel;
+      goldEl.textContent = Math.floor(gold);
+      goldMine.classList.add('active');
+      setTimeout(() => goldMine.classList.remove('active'), 2000);
+    } else {
+      alert('Недостаточно золота для улучшения шахты!');
+    }
+  });
+
+  // Улучшение нефтяной вышки
+  oilRig.querySelector('button').addEventListener('click', () => {
+    const cost = oilLevel * 150;
+    if (gold >= cost) {
+      gold -= cost;
+      oilLevel++;
+      oilRig.querySelector('.level').textContent = oilLevel;
+      goldEl.textContent = Math.floor(gold);
+      oilRig.classList.add('active');
+      setTimeout(() => oilRig.classList.remove('active'), 2000);
+    } else {
+      alert('Недостаточно золота для улучшения нефтяной вышки!');
+    }
+  });
+</script>
+
+</body>
+</html>
