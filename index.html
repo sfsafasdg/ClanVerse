@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<title>Mini Clash Top-Down</title>
+<title>Mini Clash Top-Down Improved</title>
 <style>
   body {
     margin: 0; padding: 0;
@@ -85,6 +85,14 @@
     background: linear-gradient(145deg, #64b5f6, #1976d2);
     border: 2px solid #42a5f5;
   }
+  .building.oilrig {
+    background: linear-gradient(145deg, #4db6ac, #00796b);
+    border: 2px solid #26a69a;
+  }
+  .building.tower {
+    background: linear-gradient(145deg, #ef5350, #b71c1c);
+    border: 2px solid #e53935;
+  }
   @keyframes pulse {
     0% { box-shadow: 0 0 8px rgba(0,0,0,0.1); }
     100% { box-shadow: 0 0 15px rgba(0,0,0,0.3); }
@@ -104,6 +112,30 @@
     0%, 100% { filter: brightness(1); }
     50% { filter: brightness(0.85); }
   }
+  /* Враги */
+  .enemy {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #6a1b9a, #4a148c);
+    box-shadow: 0 3px 5px rgba(0,0,0,0.6);
+    animation: enemy-walk 1.2s steps(4) infinite;
+    pointer-events: none;
+  }
+  @keyframes enemy-walk {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(0.7); }
+  }
+  /* Снаряд башни */
+  .projectile {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #ff5252;
+    border-radius: 50%;
+    pointer-events: none;
+  }
   #info {
     margin-top: 12px;
     text-align: center;
@@ -122,6 +154,8 @@
   <div id="build-buttons">
     <button data-building="house">Дом (20 золота)</button>
     <button data-building="barracks">Казармы (50 золота)</button>
+    <button data-building="oilrig">Нефтяная вышка (30 золота)</button>
+    <button data-building="tower">Защитная башня (60 золота)</button>
     <button id="create-unit-btn" disabled>Создать юнита (10 золота)</button>
   </div>
   <div id="map"></div>
@@ -141,11 +175,16 @@
   let oil = 50;
   let selectedBuilding = null;
   let barracksCells = [];
+  let towers = [];
+  let units = [];
+  let enemies = [];
 
   // Стоимость зданий
   const costs = {
     house: { gold: 20, oil: 0 },
     barracks: { gold: 50, oil: 0 },
+    oilrig: { gold: 30, oil: 0 },
+    tower: { gold: 60, oil: 0 },
     unit: { gold: 10 }
   };
 
@@ -167,135 +206,295 @@
   // Обработчик кнопок строительства
   document.getElementById('build-buttons').addEventListener('click', e => {
     if(e.target.tagName !== 'BUTTON') return;
-    if(e.target.id === 'create-unit-btn') {
-      createUnit();
-      return;
-    }
-    const bld = e.target.dataset.building;
-    if(costs[bld]){
-      selectedBuilding = bld;
-      info.textContent = `Вы выбрали: ${bld}. Кликните по клетке для постройки.`;
-    }
-  });
 
-  // Строим здание по клику
-  map.addEventListener('click', e => {
-    if(!selectedBuilding) {
-      info.textContent = "Сначала выберите здание для постройки.";
-      return;
-    }
-    if(!e.target.classList.contains('cell')) return;
-    const cell = e.target;
-    if(cell.querySelector('.building')){
-      info.textContent = "На этой клетке уже есть здание!";
-      return;
-    }
-    // Проверяем ресурсы
-    if(gold < costs[selectedBuilding].gold){
-      info.textContent = "Недостаточно золота!";
-      return;
-    }
-    // Строим здание
-    gold -= costs[selectedBuilding].gold;
-    goldSpan.textContent = gold;
-
-    const buildingDiv = document.createElement('div');
-    buildingDiv.classList.add('building', selectedBuilding);
-    cell.appendChild(buildingDiv);
-
-    info.textContent = `${selectedBuilding} построен!`;
-
-    // Если построили казармы, включаем кнопку создания юнитов
-    if(selectedBuilding === 'barracks'){
-      barracksCells.push(cell);
-      createUnitBtn.disabled = false;
-    }
-
-    selectedBuilding = null;
-  });
-
-  // Создание юнита из случайной казармы
-  function createUnit(){
-    if(gold < costs.unit.gold){
-      info.textContent = "Недостаточно золота на юнита!";
-      return;
-    }
-    if(barracksCells.length === 0){
-      info.textContent = "Постройте хотя бы одну казарму!";
-      return;
-    }
-    gold -= costs.unit.gold;
-    goldSpan.textContent = gold;
-
-    // Создаем юнита в случайной казарме
-    const barracksCell = barracksCells[Math.floor(Math.random() * barracksCells.length)];
-    const unit = document.createElement('div');
-    unit.classList.add('unit');
-    map.appendChild(unit);
-
-    // Начальные координаты (центр клетки казармы)
-    const rect = barracksCell.getBoundingClientRect();
-    const mapRect = map.getBoundingClientRect();
-    const startX = rect.left - mapRect.left + rect.width/2 - unit.offsetWidth/2;
-    const startY = rect.top - mapRect.top + rect.height/2 - unit.offsetHeight/2;
-
-    unit.style.left = startX + 'px';
-    unit.style.top = startY + 'px';
-
-    info.textContent = "Юнит создан! Он двигается по карте.";
-
-    moveUnitRandom(unit);
-  }
-
-  // Двигаем юнита случайным образом по карте
-  function moveUnitRandom(unit){
-    const cellSize = cells[0].offsetWidth + 6; // с учетом gap
-
-    let posX = parseFloat(unit.style.left);
-    let posY = parseFloat(unit.style.top);
-
-    // Выбираем новую цель в пределах карты (в пикселях)
-    const targetCellX = Math.floor(Math.random() * mapWidth);
-    const targetCellY = Math.floor(Math.random() * mapHeight);
-
-    const mapRect = map.getBoundingClientRect();
-
-    const targetX = targetCellX * (cellSize) + cellSize/2 - unit.offsetWidth/2;
-    const targetY = targetCellY * (cellSize) + cellSize/2 - unit.offsetHeight/2;
-
-    const duration = 2000 + Math.random() * 3000; // 2-5 секунд движение
-
-    const startTime = performance.now();
-
-    function animate(time){
-      const elapsed = time - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      unit.style.left = posX + (targetX - posX)*progress + 'px';
-      unit.style.top = posY + (targetY - posY)*progress + 'px';
-
-      if(progress < 1){
-        requestAnimationFrame(animate);
+    if(e.target.id === 'create-unit-btn'){
+      if(barracksCells.length === 0) {
+        info.textContent = 'Нет казарм для создания юнитов.';
+        return;
+      }
+      if(gold >= costs.unit.gold){
+        gold -= costs.unit.gold;
+        updateResources();
+        createUnit();
       } else {
-        // Как только достигли цели, двигаемся снова
-        moveUnitRandom(unit);
+        info.textContent = 'Недостаточно золота для юнита';
+      }
+      return;
+    }
+
+    const building = e.target.dataset.building;
+    if(building){
+      if(gold >= costs[building].gold && oil >= costs[building].oil){
+        selectedBuilding = building;
+        info.textContent = `Выберите клетку для строительства ${building}`;
+      } else {
+        info.textContent = 'Недостаточно ресурсов для строительства';
       }
     }
-    requestAnimationFrame(animate);
+  });
+
+  // Клик по клетке - строим здание если выбрано
+  map.addEventListener('click', e => {
+    if(!selectedBuilding) return;
+
+    const cell = e.target.closest('.cell');
+    if(!cell) return;
+
+    if(cell.hasChildNodes()){
+      info.textContent = 'Клетка занята';
+      return;
+    }
+
+    // Строим здание
+    buildBuilding(cell, selectedBuilding);
+    selectedBuilding = null;
+    info.textContent = 'Здание построено';
+  });
+
+  // Обновление ресурсов на странице
+  function updateResources(){
+    goldSpan.textContent = gold;
+    oilSpan.textContent = oil;
+
+    // Включаем кнопку создания юнита, если есть казармы и достаточно золота
+    createUnitBtn.disabled = barracksCells.length === 0 || gold < costs.unit.gold;
   }
 
-  // Автоматический сбор ресурсов каждые 5 секунд
-  setInterval(() => {
-    // За каждый дом добавляем золото
-    const houses = cells.filter(c => c.querySelector('.building.house')).length;
-    if(houses > 0){
-      gold += houses * 5;
-      goldSpan.textContent = gold;
-      info.textContent = `Собрали ${houses * 5} золота с домов!`;
+  // Строим здание на клетке
+  function buildBuilding(cell, building){
+    // Снимаем ресурсы
+    gold -= costs[building].gold;
+    oil -= costs[building].oil;
+    updateResources();
+
+    // Создаем DOM элемент здания
+    const b = document.createElement('div');
+    b.classList.add('building', building);
+    cell.appendChild(b);
+
+    // Логика зданий
+    if(building === 'house'){
+      // Дом дает золото 1 каждую секунду
+      if(!cell.goldInterval){
+        cell.goldInterval = setInterval(() => {
+          gold += 1;
+          updateResources();
+        }, 1000);
+      }
+    } else if(building === 'barracks'){
+      barracksCells.push(cell);
+    } else if(building === 'oilrig'){
+      // Нефтяная вышка даёт 1 нефти каждые 5 секунд
+      if(!cell.oilInterval){
+        cell.oilInterval = setInterval(() => {
+          oil += 1;
+          updateResources();
+        }, 5000);
+      }
+    } else if(building === 'tower'){
+      // Добавляем в список башен для атаки врагов
+      towers.push({cell: cell, element: b, cooldown: 0});
     }
-  }, 5000);
+  }
 
+  // Создаем юнита из казарм - появится возле первой казармы
+  function createUnit(){
+    if(barracksCells.length === 0) return;
+    const barracksCell = barracksCells[0];
+    const unit = {
+      x: parseInt(barracksCell.dataset.x),
+      y: parseInt(barracksCell.dataset.y),
+      hp: 10,
+      speed: 0.1,
+      element: document.createElement('div'),
+      target: null,
+      path: []
+    };
+    unit.element.classList.add('unit');
+    unit.element.style.left = unit.x * 62 + 'px';
+    unit.element.style.top = unit.y * 62 + 'px';
+    map.appendChild(unit.element);
+    units.push(unit);
+  }
+
+  // Обновление игры (движение юнитов, атаки башен, появление врагов)
+  function gameLoop(){
+    // Движение юнитов (просто случайное)
+    units.forEach(u => {
+      // Простейшее движение - случайное
+      if(!u.target){
+        u.target = {
+          x: Math.floor(Math.random() * mapWidth),
+          y: Math.floor(Math.random() * mapHeight)
+        };
+      }
+      const dx = u.target.x - u.x;
+      const dy = u.target.y - u.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < 0.1){
+        u.target = null;
+      } else {
+        u.x += (dx/dist) * u.speed;
+        u.y += (dy/dist) * u.speed;
+      }
+      u.element.style.left = u.x * 62 + 'px';
+      u.element.style.top = u.y * 62 + 'px';
+    });
+
+    // Башни атакуют врагов
+    towers.forEach(tower => {
+      if(tower.cooldown > 0){
+        tower.cooldown -= 16;
+        return;
+      }
+      // Находим ближайшего врага в радиусе 3 клеток
+      const tx = parseInt(tower.cell.dataset.x);
+      const ty = parseInt(tower.cell.dataset.y);
+
+      let nearestEnemy = null;
+      let nearestDist = 9999;
+      enemies.forEach(e => {
+        const ex = e.x;
+        const ey = e.y;
+        const d = Math.sqrt((tx - ex)**2 + (ty - ey)**2);
+        if(d <= 3 && d < nearestDist){
+          nearestEnemy = e;
+          nearestDist = d;
+        }
+      });
+
+      if(nearestEnemy){
+        // Стреляем в врага - создаем снаряд
+        shootProjectile(tower, nearestEnemy);
+        tower.cooldown = 1000; // 1 секунда перезарядки
+      }
+    });
+
+    // Движение врагов
+    enemies.forEach(enemy => {
+      if(enemy.hp <= 0){
+        // Уничтожаем врага
+        enemy.element.remove();
+        enemies = enemies.filter(e => e !== enemy);
+        gold += 5;
+        updateResources();
+        return;
+      }
+
+      // Двигаемся к случайной точке (или к казармам)
+      if(!enemy.target){
+        // Цель — ближайшая казарма, если есть
+        if(barracksCells.length > 0){
+          const barrack = barracksCells[0];
+          enemy.target = {
+            x: parseInt(barrack.dataset.x),
+            y: parseInt(barrack.dataset.y)
+          };
+        } else {
+          enemy.target = {
+            x: Math.floor(Math.random() * mapWidth),
+            y: Math.floor(Math.random() * mapHeight)
+          };
+        }
+      }
+
+      const dx = enemy.target.x - enemy.x;
+      const dy = enemy.target.y - enemy.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if(dist < 0.1){
+        // Атака здания (если казарма)
+        barracksCells.forEach(cell => {
+          if(cell.dataset.x == enemy.x.toFixed(0) && cell.dataset.y == enemy.y.toFixed(0)){
+            // Уничтожаем казарму
+            cell.innerHTML = '';
+            barracksCells = barracksCells.filter(c => c !== cell);
+            gold -= 20; // штраф
+            updateResources();
+          }
+        });
+        enemy.target = null;
+      } else {
+        enemy.x += (dx/dist) * enemy.speed;
+        enemy.y += (dy/dist) * enemy.speed;
+        enemy.element.style.left = enemy.x * 62 + 'px';
+        enemy.element.style.top = enemy.y * 62 + 'px';
+      }
+    });
+
+    // Обновляем снаряды
+    projectiles.forEach(proj => {
+      proj.x += proj.vx;
+      proj.y += proj.vy;
+      proj.element.style.left = proj.x * 62 + 'px';
+      proj.element.style.top = proj.y * 62 + 'px';
+
+      // Проверка попадания во врага
+      const hitEnemy = enemies.find(e => Math.abs(e.x - proj.x) < 0.3 && Math.abs(e.y - proj.y) < 0.3);
+      if(hitEnemy){
+        hitEnemy.hp -= proj.damage;
+        proj.element.remove();
+        projectiles = projectiles.filter(p => p !== proj);
+      }
+
+      // Если снаряд улетел за карту - удаляем
+      if(proj.x < 0 || proj.x > mapWidth || proj.y < 0 || proj.y > mapHeight){
+        proj.element.remove();
+        projectiles = projectiles.filter(p => p !== proj);
+      }
+    });
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Снаряды башен
+  let projectiles = [];
+  function shootProjectile(tower, enemy){
+    const tx = parseInt(tower.cell.dataset.x);
+    const ty = parseInt(tower.cell.dataset.y);
+
+    const proj = {
+      x: tx,
+      y: ty,
+      damage: 3,
+      element: document.createElement('div'),
+      vx: 0,
+      vy: 0
+    };
+    proj.element.classList.add('projectile');
+    map.appendChild(proj.element);
+
+    // Вектор скорости к врагу
+    const dx = enemy.x - tx;
+    const dy = enemy.y - ty;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    proj.vx = (dx / dist) * 0.3;
+    proj.vy = (dy / dist) * 0.3;
+
+    projectiles.push(proj);
+  }
+
+  // Спавн врагов каждые 10 секунд
+  function spawnEnemy(){
+    const enemy = {
+      x: 0,
+      y: 0,
+      hp: 15,
+      speed: 0.05,
+      element: document.createElement('div'),
+      target: null
+    };
+    enemy.element.classList.add('enemy');
+    enemy.element.style.left = enemy.x * 62 + 'px';
+    enemy.element.style.top = enemy.y * 62 + 'px';
+    map.appendChild(enemy.element);
+    enemies.push(enemy);
+  }
+
+  setInterval(spawnEnemy, 10000);
+
+  updateResources();
+  requestAnimationFrame(gameLoop);
 </script>
-
 </body>
 </html>
