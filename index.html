@@ -234,4 +234,68 @@
     map.appendChild(unit);
 
     // Начальные координаты (центр клетки казармы)
-    const rect = barracksCell.get
+    const rect = barracksCell.getBoundingClientRect();
+    const mapRect = map.getBoundingClientRect();
+    const startX = rect.left - mapRect.left + rect.width/2 - unit.offsetWidth/2;
+    const startY = rect.top - mapRect.top + rect.height/2 - unit.offsetHeight/2;
+
+    unit.style.left = startX + 'px';
+    unit.style.top = startY + 'px';
+
+    info.textContent = "Юнит создан! Он двигается по карте.";
+
+    moveUnitRandom(unit);
+  }
+
+  // Двигаем юнита случайным образом по карте
+  function moveUnitRandom(unit){
+    const cellSize = cells[0].offsetWidth + 6; // с учетом gap
+
+    let posX = parseFloat(unit.style.left);
+    let posY = parseFloat(unit.style.top);
+
+    // Выбираем новую цель в пределах карты (в пикселях)
+    const targetCellX = Math.floor(Math.random() * mapWidth);
+    const targetCellY = Math.floor(Math.random() * mapHeight);
+
+    const mapRect = map.getBoundingClientRect();
+
+    const targetX = targetCellX * (cellSize) + cellSize/2 - unit.offsetWidth/2;
+    const targetY = targetCellY * (cellSize) + cellSize/2 - unit.offsetHeight/2;
+
+    const duration = 2000 + Math.random() * 3000; // 2-5 секунд движение
+
+    const startTime = performance.now();
+
+    function animate(time){
+      const elapsed = time - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      unit.style.left = posX + (targetX - posX)*progress + 'px';
+      unit.style.top = posY + (targetY - posY)*progress + 'px';
+
+      if(progress < 1){
+        requestAnimationFrame(animate);
+      } else {
+        // Как только достигли цели, двигаемся снова
+        moveUnitRandom(unit);
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+
+  // Автоматический сбор ресурсов каждые 5 секунд
+  setInterval(() => {
+    // За каждый дом добавляем золото
+    const houses = cells.filter(c => c.querySelector('.building.house')).length;
+    if(houses > 0){
+      gold += houses * 5;
+      goldSpan.textContent = gold;
+      info.textContent = `Собрали ${houses * 5} золота с домов!`;
+    }
+  }, 5000);
+
+</script>
+
+</body>
+</html>
